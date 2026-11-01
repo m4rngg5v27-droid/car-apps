@@ -11,7 +11,7 @@ app platform and show up in *All apps* like BMW's apps.
 
 | App | Package id | What it does |
 |---|---|---|
-| Car Data | `iteriodev_cardash` | Live engine data: engine speed, boost, power and torque bars with peak hold, oil, coolant, intake and transmission temperatures. |
+| Car Data | `iteriodev_cardash` | Live engine data: boost, power and torque bars with peak hold, speed and gear, oil, coolant, intake and transmission temperatures. |
 | Drag Timer | `iteriodev_draggy` | Acceleration timer: stand still, launch, and it times the run with splits and a speed-over-time chart. Keeps your best times; km/h or mph. |
 | Fault Codes | `iteriodev_dtcscan` | Reads the fault memory of every control unit in the car, shows each fault with its text and clears it when you ask. Also lists the car's Check Control messages. |
 | Live Adjustments | `iteriodev_liveadjust` | For an MHD-tuned DME: engine map 1-4 and MHD Max Cooling, plus the exhaust flap (open, close, back to the DME). See below. |
