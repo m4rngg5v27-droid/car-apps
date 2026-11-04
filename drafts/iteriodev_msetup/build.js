@@ -19,7 +19,7 @@ const { execFileSync } = require('child_process');
 const { design } = require('./layout.js');
 
 const ID = 'iteriodev_msetup';
-const VERSION = '0.3.0';
+const VERSION = '0.3.1';
 const TITLE = 'M Setup';
 const DESCRIPTION = 'DRAFT: the M Setup page laid out like the iDrive 8 one. Engine, Steering and Gearbox are dummy '
     + 'switches on SETUP, M1 and M2. M xDrive is real: 2WD switches xDrive off until the car is switched off (the DSC\'s '

@@ -9,9 +9,10 @@ const hex = (a) => a.map((b) => (b < 16 ? '0' : '') + b.toString(16).toUpperCase
 let failed = 0;
 const check = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (!ok) failed++; };
 
-/** car: dsc (SGBD index hex), rpm, speed, stage, awd (1/0), writes: [replies for 2E, in order], dbe1Refused */
+/** car: dsc (SGBD index hex), rpm, speed, stage, awd (1/0), writes: [replies for 2E, in order], dbe1Refused,
+ *  ignored (the DSC takes the write and nothing changes, as the G05's IB did) */
 function rig(car) {
-    const c = Object.assign({ dsc: '0F2510', rpm: 0, speed: 0, stage: 'P', awd: 1, writes: [], dbe1Refused: false, session: true }, car);
+    const c = Object.assign({ dsc: '0F2510', rpm: 0, speed: 0, stage: 'P', awd: 1, writes: [], dbe1Refused: false, session: true, ignored: false }, car);
     const r = { t: 1e6, sent: [], c };
     const base = createGuard({ engineRunning: true, freshMs: 3000, now: () => r.t });
     const flapJob = (sid, d) => sid === 0x2F && d[0] === 0x60 && d[1] === 0xFD;
@@ -31,7 +32,7 @@ function rig(car) {
         if (ecu === 0x29 && sid === 0x10) return c.session ? [0x50, 0x03, 0, 0, 0, 0] : [0x7F, 0x10, 0x22];
         if (ecu === 0x29 && sid === 0x2E) {
             const w = c.writes.length ? c.writes.shift() : 'ok';
-            if (w === 'ok') { c.awd = d[2]; return [0x6E, 0xDB, 0xE1]; }
+            if (w === 'ok') { if (!c.ignored) c.awd = d[2]; return [0x6E, 0xDB, 0xE1]; }
             return [0x7F, 0x2E, w];
         }
         return null;
@@ -54,12 +55,12 @@ const OFF = '2E DB E1 00', ON = '2E DB E1 01';
     // G42 / G2x: DSC_G20 (0F2510) - engine off, P, standing: two taps
     let r = rig();
     await r.poll();
-    check(r.x.index === '0F2510' && r.x.supported === true && r.x.view().chosen === 0, 'G42 DSC_G20: identified, reads 4WD from the transfer case');
+    check(r.x.index === '0F2510' && r.x.supported === true && r.x.view().chosen === 0 && r.x.view().confirmed, 'G42 DSC_G20: identified, 4WD read from the transfer case -> red');
     check(r.sent.length === 0, 'opening: reads only');
     await r.tap('off');
     check(r.sent.length === 0 && /Tap 2WD again/.test(r.x.view().line), 'first tap on 2WD: asks again, nothing sent');
     await r.tap('off');
-    check(r.sent.join('|') === OFF && r.x.view().chosen === 1 && /transfer case reports it/.test(r.x.view().line), 'second tap: 2E DB E1 00, 2WD read back from the transfer case');
+    check(r.sent.join('|') === OFF && r.x.view().chosen === 1 && r.x.view().confirmed && /transfer case reports it/.test(r.x.view().line), 'second tap: 2E DB E1 00, 2WD read back from the transfer case -> red');
     await r.tap('on'); await r.tap('on');
     check(r.sent.length === 1 && /switched off and on again/.test(r.x.view().line), 'G42: 4WD sends nothing, says the ignition cycle brings it back');
 
@@ -81,6 +82,9 @@ const OFF = '2E DB E1 00', ON = '2E DB E1 01';
     check(r.sent.join('|') === OFF && /Start 3× without the brake/.test(r.x.view().line) && r.x.view().chosen === 0, 'NRC 33: the diagnostic-mode hint, still 4WD');
     r = rig({ writes: [0x7E] }); await r.poll(); await r.tap('off'); await r.tap('off');
     check(r.sent.join('|') === `${OFF}|10 03|${OFF}` && r.x.view().chosen === 1, 'NRC 7E: extended session, the write once more');
+
+    r = rig({ ignored: true }); await r.poll(); await r.tap('off'); await r.tap('off'); await r.poll(); await r.poll();
+    check(r.sent.join('|') === OFF && r.x.view().chosen === 1 && !r.x.view().confirmed, 'DSC accepts but the transfer case stays on: 2WD asked, never confirmed -> stays yellow');
 
     // G01 X3 M40i: DSC_G30N (0F2850) - engine running OK, first write busy, 4WD at once
     r = rig({ dsc: '0F2850', rpm: 700, writes: [0x21] }); await r.poll(); await r.tap('off'); await r.tap('off');

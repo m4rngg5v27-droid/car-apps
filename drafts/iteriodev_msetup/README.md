@@ -13,6 +13,18 @@ The iDrive 8 M Setup page as a renderer app, on the SETUP, M1 and M2 pages:
 A dummy tap only changes the screen and the app's `data/msetup.json`; nothing goes to the car. Each page keeps its
 own dummy choices. M xDrive and Exhaust are one live state for every page; Exhaust starts as OEM after every app start.
 
+**Colours on the real rows:** the option turns **yellow** when it is sent and waits for the car, and **red** only once
+the car confirms it is applied:
+
+- M xDrive: the transfer case reads that mode (or, without its answer, the DSC's LMV_FUNKTION with the engine running).
+  A DSC that takes the write while the transfer case stays in 4WD leaves 2WD yellow.
+- Exhaust Open / Closed: the DME took the command *and* the flap position read after it is open (<= 20 %) / closed
+  (>= 80 %). Closed paused above 4500 rpm is yellow. OEM: no override of ours stands (none accepted, the hand-back
+  accepted, or the last one more than 22 s old, past the DME's own timer).
+- The dummy rows stay red: there is nothing to confirm.
+
+What to find out on the car to make all of this better: [RESEARCH.md](RESEARCH.md).
+
 ## M xDrive (G42 and other G cars)
 
 The DSC's own job LMV_FUNKTION (`src/xdrive.js`, a port of idrive7-apps Live Adjustments 0.7.7, the DSC path):
@@ -63,8 +75,8 @@ hold, the rpm guard, the xDrive row in this app (the job itself: see above) and 
 - `src/main.js` the app; `src/exhaust.js` the flap; `src/xdrive.js` xDrive; `src/diag.js`, `src/tasu-guard.js` from Live Adjustments 1.0.5.
 - `runtime/` the renderer runtime (as in Tailscale 1.0.4); `pkg/` manifest and permissions (as in Live Adjustments).
 - `node drafts/iteriodev_msetup/build.js` writes `apps/iteriodev_msetup/` (package, `app.json`, icon) and `preview.png`.
-- Tests (fake head unit and control units): `test/test_exhaust.js` (15 checks), `test/test_xdrive.js` (21: G42 and
-  G01 DSCs, every check, refusals, the guard) and `test/test_app.js` (14, the built package on screen).
+- Tests (fake head unit and control units): `test/test_exhaust.js` (22 checks), `test/test_xdrive.js` (22: G42 and
+  G01 DSCs, every check, refusals, the guard) and `test/test_app.js` (15, the built package on screen).
 
 Next: capture what the stock M Setup page sends (SOME/IP, parked) and wire the dummy rows to it one at a time.
 Lead: Car Data reads `de.bmw.infotainment.misc.MDrive` (`statusMSystem.statusAllWheelSetup`, the gearbox's Drivelogic),

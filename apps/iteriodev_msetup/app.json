@@ -1,6 +1,6 @@
 {
   "id": "iteriodev_msetup",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "title": "M Setup",
   "description": "DRAFT: the M Setup page laid out like the iDrive 8 one. Engine, Steering and Gearbox are dummy switches on SETUP, M1 and M2. M xDrive is real: 2WD switches xDrive off until the car is switched off (the DSC's own job, parked in P with the engine off; tested on G42 / G2x / G01 DSCs). Exhaust is real: Open, Closed or OEM for the electric exhaust flap, held by the app; Closed hands the flap back to the DME above 4500 rpm.",
   "mguHmi": [

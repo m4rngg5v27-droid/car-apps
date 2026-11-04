@@ -123,10 +123,12 @@ function render() {
     ROWS.forEach((r) => {
         const focused = r.key === focus;
         const chosen = r.key === 'exhaust' ? ['open', 'closed', 'oem'].indexOf(ex.want) : r.key === 'xdrive' ? xd.chosen : s[r.key];
+        // a live row: red only once the car confirms it, yellow while it is sent / waiting for that (dummies: red)
+        const color = !r.live || (r.key === 'exhaust' ? ex.confirmed : xd.confirmed) ? RED : AMBER;
         screens.set(`${r.key}_focus`, { hidden: !focused });
         r.options.forEach((o, j) => {
             const sel = chosen === j;
-            screens.set(`${r.key}_${j}`, { color: sel ? RED : OPTION })
+            screens.set(`${r.key}_${j}`, { color: sel ? color : OPTION })
                 .set(`${r.key}_${j}_frame`, { hidden: !(sel && focused) })
                 .set(`${r.key}_${j}_fill`, { hidden: !(sel && focused) });
         });

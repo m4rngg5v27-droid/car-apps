@@ -9,7 +9,7 @@ let failed = 0;
 const check = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (!ok) failed++; };
 
 function rig(opts) {
-    const o = Object.assign({ flap: true, rpm: 900, refuse: null }, opts);
+    const o = Object.assign({ flap: true, rpm: 900, refuse: null, pos: 9000, stuck: false }, opts);   // pos: duty cycle x 100
     const r = { t: 1e6, sent: [], o };
     // the same guard main.js uses: the flap job at any speed, reads always, anything else refused
     const base = createGuard({ engineRunning: true, freshMs: 3000 });
@@ -20,8 +20,12 @@ function rig(opts) {
         if (!g.ok) return Promise.reject(new Error(g.why));
         if (sid !== 0x22 && sid !== 0x01) r.sent.push(hex([sid].concat(data)));
         if (sid === 0x01) return Promise.resolve(o.rpm === null ? null : [0x41, 0x0C, ((o.rpm * 4) >> 8) & 255, (o.rpm * 4) & 255]);
-        if (sid === 0x22) return Promise.resolve(o.flap ? [0x62, 0x64, 0xFD, 0x03, 0xE8] : [0x7F, 0x22, 0x31]);
-        if (sid === 0x2F) return Promise.resolve(o.refuse ? [0x7F, 0x2F, o.refuse] : [0x6F].concat(data.slice(0, 2)));
+        if (sid === 0x22) return Promise.resolve(o.flap ? [0x62, 0x64, 0xFD, o.pos >> 8, o.pos & 255] : [0x7F, 0x22, 0x31]);
+        if (sid === 0x2F) {
+            if (o.refuse) return Promise.resolve([0x7F, 0x2F, o.refuse]);
+            if (!o.stuck) o.pos = data[2] === 0x03 ? (data[3] << 8) | data[4] : 9000;   // the flap follows; back to the DME: closed at idle
+            return Promise.resolve([0x6F].concat(data.slice(0, 2)));
+        }
         return Promise.resolve(null);
     } };
     r.ex = new Exhaust({ diag: () => diag, log: () => {}, now: () => r.t, shown: () => false });
@@ -35,10 +39,14 @@ const OPEN = '2F 60 FD 03 03 E8', CLOSE = '2F 60 FD 03 23 28', OEM = '2F 60 FD 0
     let r = rig();
     await r.ex.tick();
     check(r.sent.length === 0, 'start: OEM chosen, screen hidden: nothing sent');
+    check(r.ex.view().confirmed, 'start: OEM confirmed (no override of ours) -> red');
 
     await r.ex.set('open');
     check(r.sent.join('|') === OPEN, 'OPEN: one open command');
-    for (let i = 0; i < 14; i++) await r.step(1000);
+    check(!r.ex.view().confirmed, 'OPEN accepted, flap not read since: not confirmed -> yellow');
+    await r.step(1000);
+    check(r.ex.view().confirmed, 'OPEN: the flap reads open (10 %) after the command -> red');
+    for (let i = 0; i < 13; i++) await r.step(1000);
     check(r.sent.length === 1, 'OPEN: not sent again within 15 s');
     await r.step(1000);
     check(r.sent.length === 2 && r.sent[1] === OPEN, `OPEN: sent again at ${HOLD_MS / 1000} s (held under the DME's ~20 s)`);
@@ -46,8 +54,10 @@ const OPEN = '2F 60 FD 03 03 E8', CLOSE = '2F 60 FD 03 23 28', OEM = '2F 60 FD 0
     r = rig({ rpm: 3000 });
     await r.ex.set('closed');
     check(r.sent.join('|') === CLOSE, 'CLOSED at 3000 rpm: one close command');
+    await r.step(1000);
+    check(r.ex.view().confirmed, 'CLOSED: the flap reads closed (90 %) -> red');
     r.o.rpm = 4600; await r.step(1000);
-    check(r.sent[r.sent.length - 1] === OEM && r.ex.view().warn, 'CLOSED, 4600 rpm: handed back to the DME, warning shown');
+    check(r.sent[r.sent.length - 1] === OEM && r.ex.view().warn && !r.ex.view().confirmed, 'CLOSED, 4600 rpm: handed back to the DME, warning, not applied -> yellow');
     r.o.rpm = 4200; await r.step(1000);
     check(r.sent[r.sent.length - 1] === OEM && r.sent.length === 2, 'CLOSED, 4200 rpm: stays with the DME (resumes only under 4000)');
     r.o.rpm = 3900; await r.step(1000);
@@ -60,6 +70,16 @@ const OPEN = '2F 60 FD 03 03 E8', CLOSE = '2F 60 FD 03 23 28', OEM = '2F 60 FD 0
     check(r.sent.join('|') === `${CLOSE}|${OEM}`, 'OEM after CLOSED: hand-back sent');
     await r.step(20000);
     check(r.sent.length === 2, 'OEM: nothing more sent');
+
+    r = rig({ stuck: true });
+    await r.ex.set('open'); for (let i = 0; i < 5; i++) await r.step(1000);
+    check(!r.ex.view().confirmed, 'OPEN accepted but the flap stays closed (stuck / no motor): never confirmed -> stays yellow');
+
+    r = rig();
+    await r.ex.set('open'); await r.step(1000); r.o.refuse = 0x22; await r.ex.set('oem');
+    check(!r.ex.view().confirmed, 'OEM, hand-back refused: not confirmed while our override may still stand');
+    r.t += 23000;
+    check(r.ex.view().confirmed, 'OEM, 23 s after the last override: the DME has it back -> red');
 
     r = rig();
     await r.ex.set('open'); await r.ex.shutdown();

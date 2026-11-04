@@ -46,9 +46,11 @@ class Exhaust {
         this.want = 'oem';        // the button chosen (a fresh start is always OEM: nothing is re-applied by itself)
         this.applied = null;      // what the DME last accepted from us: 'open' | 'closed' | 'oem' | null (nothing yet)
         this.sentAt = 0;
+        this.acceptedAt = 0;      // when the DME first took the current OPEN / CLOSED (its read-back must be newer)
+        this.overrideAt = 0;      // the last accepted OPEN / CLOSED: the DME has the flap back ~20 s after it at the latest
         this.paused = null;       // CLOSED handed to the DME: 'rpm' | 'unknown' | null
         this.rpm = null; this.rpmAt = 0;
-        this.pos = null; this.posAt = 0;
+        this.pos = null; this.posAt = 0; this.posOkAt = 0;   // posAt: last read asked, posOkAt: last one answered
         this.flap = null;         // true: the DME has the electric flap, false: it has none, null: not known yet
         this.msg = null;          // { text, at } a refusal or a failure, shown for MSG_MS
         this.busy = false;
@@ -118,7 +120,12 @@ class Exhaust {
         return d.physical(DME, 0x2F, CMD[k], 3000, ours).then((u) => {
             const again = this.applied === k && k !== 'oem';
             if (!again || !u || u[0] !== 0x6F) this.o.log(`exhaust: 2F ${CMD[k].map(hex).join(' ')} -> ${u ? u.map(hex).join(' ') : 'no reply'}`);
-            if (u && u[0] === 0x6F) { this.applied = k; this.sentAt = this.now(); return true; }
+            if (u && u[0] === 0x6F) {
+                if (this.applied !== k) { this.acceptedAt = this.now(); this.posAt = 0; }   // read the flap at the next tick
+                this.applied = k; this.sentAt = this.now();
+                if (k !== 'oem') this.overrideAt = this.now(); else this.overrideAt = 0;
+                return true;
+            }
             this._say(u ? `The DME refused: ${NRC[u[2]] || `NRC ${hex(u[2])}`}` : 'No answer from the DME');
             if (k === 'oem') this.applied = null;          // unknown: the override runs out by itself in ~20 s
             return false;
@@ -137,7 +144,13 @@ class Exhaust {
         return d.physical(DME, 0x22, POS, 2000, ours).then((u) => {
             if (u && u[0] === 0x62 && u.length >= 5) {
                 const raw = (u[3] << 8) | u[4];
-                this.pos = (raw > 0x7FFF ? raw - 0x10000 : raw) / 100;
+                const pos = (raw > 0x7FFF ? raw - 0x10000 : raw) / 100;
+                // research: each move of the flap, with the time since our last accepted command (how fast it moves)
+                if (this.pos === null || Math.abs(pos - this.pos) >= 5) {
+                    this.o.log(`exhaust: flap ${pos} %${this.sentAt ? ` (${this.now() - this.sentAt} ms after ${String(this.applied).toUpperCase()})` : ''}`);
+                }
+                this.pos = pos;
+                this.posOkAt = this.now();
                 this.flap = true;
             } else if (u && u[0] === 0x7F && u[2] !== 0x21 && u[2] !== 0x22) {
                 if (this.flap !== false) this.o.log(`exhaust: the DME refuses 22 64FD (${hex(u[2])}): no electric flap`);
@@ -149,7 +162,18 @@ class Exhaust {
     _say(text) { this.msg = { text, at: this.now() }; this.o.log(text); }
     _changed() { if (this.o.onChange) this.o.onChange(); }
 
-    /** What the row shows: the chosen button and one line under the label. */
+    /**
+     * Applied, as the car confirms it: OPEN / CLOSED when the DME took the command and the flap position read after
+     * that is open (<= 20 %) / closed (>= 80 %); OEM when no override of ours stands (none accepted, the hand-back
+     * accepted, or the last one older than the DME's own ~20 s timer).
+     */
+    confirmed() {
+        if (this.want === 'oem') return !this.overrideAt || this.now() - this.overrideAt > 22000;
+        if (this.applied !== this.want || this.pos === null || this.posOkAt <= this.acceptedAt) return false;
+        return this.want === 'open' ? this.pos <= 20 : this.pos >= 80;
+    }
+
+    /** What the row shows: the chosen button, whether the car confirms it, and one line under the label. */
     view() {
         const t = this.now();
         const where = this.pos === null ? '' : ` · flap ${this.pos <= 20 ? 'open' : this.pos >= 80 ? 'closed' : `${this.pos} %`}`;
@@ -162,7 +186,7 @@ class Exhaust {
         else if (this.paused === 'rpm') { line = `Over ${CLOSED_MAX_RPM} rpm: the DME drives it, closes again under ${CLOSED_RESUME_RPM}`; warn = true; }
         else if (this.paused === 'unknown') { line = 'Engine speed unknown: the DME drives it until it is read'; warn = true; }
         else line = this.applied === 'closed' ? `Held closed · the DME takes over above ${CLOSED_MAX_RPM} rpm${where}` : 'Closing…';
-        return { want: this.want, line, warn, flap: this.flap };
+        return { want: this.want, confirmed: this.confirmed(), line, warn, flap: this.flap };
     }
 }
 

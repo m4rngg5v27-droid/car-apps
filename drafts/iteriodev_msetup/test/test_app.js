@@ -11,7 +11,7 @@ const tree = path.join(root, fs.readdirSync(root).find((f) => /@/.test(f))), dat
 fs.mkdirSync(data); fs.mkdirSync(path.join(tree, 'javascript'));
 for (const f of fs.readdirSync(path.join(root, 'src'))) fs.copyFileSync(path.join(root, 'src', f), path.join(tree, 'javascript', f));
 console.error = () => {};      // the app's own log lines (they go to data/msetup.log too)
-let host = null; const sent = []; const car = { rpm: 875, awd: 1 };
+let host = null; const sent = []; const car = { rpm: 875, awd: 1, pos: 9000 };
 const gearbox = { cb: null, statusGearboxDrive: { subscribe: (cb) => { gearbox.cb = cb; return Promise.resolve(); }, getValue: () => Promise.resolve({ statusActualStageDrive: 1 }) } };
 class FakeGpu extends EventEmitter { constructor() { super(); this.screen = { w: 2880, h: 960 }; this.ready = true; }
     connect() {} show() {} claim() {} place() {} frame() {} maxFps() {} }
@@ -23,11 +23,11 @@ const tasu = { cb: null,
         if (sid !== 0x01 && sid !== 0x22) sent.push(hex([sid].concat(d)));
         const ecu = q.targetAddress;
         const uds = sid === 0x01 ? (d[0] === 0x0C ? [0x41, 0x0C, (car.rpm * 4) >> 8, (car.rpm * 4) & 255] : [0x41, 0x0D, 0])
-            : sid === 0x22 && ecu === 0x12 ? [0x62, 0x64, 0xFD, 0x23, 0x28]
+            : sid === 0x22 && ecu === 0x12 ? [0x62, 0x64, 0xFD, car.pos >> 8, car.pos & 255]
             : sid === 0x22 && d[0] === 0xF1 ? [0x62, 0xF1, 0x50, 0x00, 0x0F, ecu === 0x29 ? 0x25 : 0x29, ecu === 0x29 ? 0x10 : 0xE0]
             : sid === 0x22 && ecu === 0x29 ? [0x62, 0xDB, 0xE1, car.awd]
             : sid === 0x22 && ecu === 0x19 ? [0x62, 0xDB, 0x32, 0, 0, 0, 2, 0, 0, 0, car.awd ? 0x20 : 0xE8]
-            : sid === 0x2E ? (car.awd = d[2], [0x6E, 0xDB, 0xE1]) : sid === 0x2F ? [0x6F, d[0], d[1]] : [0x7F, sid, 0x11];
+            : sid === 0x2E ? (car.awd = d[2], [0x6E, 0xDB, 0xE1]) : sid === 0x2F ? (car.pos = d[2] === 3 ? (d[3] << 8) | d[4] : 9000, [0x6F, d[0], d[1]]) : [0x7F, sid, 0x11];
         setImmediate(() => tasu.cb({ errorCode: 'NO_ERROR', udsResponse: Buffer.from([0, 0, 0, 0, 0, 0, q.targetAddress, 0, 0].concat(uds)) }));
         return Promise.resolve({ TasuErrorEnum: 'NO_ERROR' });
     } };
@@ -68,11 +68,13 @@ const check = (ok, what) => { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (
     tap('xdrive_1_hit'); await wait(100);
     check(sent.length === 0 && /Tap 2WD again/.test(opt('xdrive_sub').text), 'engine off, P: first tap asks again');
     tap('xdrive_1_hit'); await wait(300);
-    check(sent.join('|') === '2E DB E1 00' && opt('xdrive_1').color === '#ff3b30' && /Rear-wheel drive/.test(opt('xdrive_sub').text), 'second tap: 2E DB E1 00, 2WD (' + opt('xdrive_sub').text + ')');
+    check(sent.join('|') === '2E DB E1 00' && opt('xdrive_1').color === '#ff3b30' && /Rear-wheel drive/.test(opt('xdrive_sub').text), 'second tap: 2E DB E1 00, 2WD confirmed by the transfer case: red (' + opt('xdrive_sub').text + ')');
     sent.length = 0;
     tap('exhaust_0_hit'); await wait(200);
     check(sent.join('|') === '2F 60 FD 03 03 E8', 'Exhaust OPEN: 2F 60FD 03 03E8 sent (got ' + sent.join('|') + ')');
-    check(opt('exhaust_0').color === '#ff3b30' && /Held open by the app/.test(opt('exhaust_sub').text), 'Exhaust row: OPEN red, "Held open by the app · flap closed" (read-back): ' + opt('exhaust_sub').text);
+    check(opt('exhaust_0').color === '#ffb020', 'Exhaust OPEN sent, flap not read since: yellow');
+    await wait(2300);
+    check(opt('exhaust_0').color === '#ff3b30' && /Held open by the app · flap open/.test(opt('exhaust_sub').text), 'flap reads open: red, "' + opt('exhaust_sub').text + '"');
     tap('exhaust_2_hit'); await wait(200);
     check(sent[sent.length - 1] === '2F 60 FD 00', 'Exhaust OEM: hand-back sent');
     tap('rail_m1_hit'); await wait();

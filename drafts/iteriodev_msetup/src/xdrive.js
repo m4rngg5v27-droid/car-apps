@@ -115,7 +115,10 @@ class XDrive {
 
     _readDbe1(d) {
         return this._ask(d, DSC, 0x22, DBE1).then((u) => {
-            if (u && u[0] === 0x62 && u.length >= 4) { this.supported = true; this.dbe1 = u[3] ? 1 : 0; this.dbe1Running = this._running() === true; }
+            if (u && u[0] === 0x62 && u.length >= 4) {
+                this.supported = true; this.dbe1 = u[3] ? 1 : 0; this.dbe1Running = this._running() === true;
+                if (this.dbe1Running && !this.lmvState && this.requested === (this.dbe1 ? 'on' : 'off')) this.requested = null;
+            }
             else if (u && u[0] === 0x7F && u[2] !== 0x21 && u[2] !== 0x22 && u[2] !== 0x78) this.supported = false;
         });
     }
@@ -221,10 +224,16 @@ class XDrive {
     _say(text, warn) { this.msg = { text, warn: !!warn, at: this.now() }; this.o.log(`xdrive: ${text}`); this._changed(); }
     _changed() { if (this.o.onChange) this.o.onChange(); }
 
-    /** What the row shows: the option chosen (the mode read back, else what was asked) and the line under the label. */
+    /**
+     * What the row shows: the option chosen, whether the car confirms it, and the line under the label. Confirmed =
+     * read back from the transfer case (or the DSC's DBE1 with the engine running) and no accepted write still
+     * waiting for its read-back; else the option asked for, not confirmed.
+     */
     view() {
         const t = this.now(), mode = this.mode();
-        const chosen = mode || (this.requested === 'off' ? '2WD' : this.requested === 'on' ? '4WD' : null);
+        const asked = this.requested === 'off' ? '2WD' : this.requested === 'on' ? '4WD' : null;
+        const chosen = asked || mode;
+        const confirmed = !asked && !!mode;
         const variant = this.index ? ` · ${this.unit() || 'DSC'} ${this.index}${TESTED_INDEX.indexOf(this.index) < 0 ? ' (untested)' : ''}` : '';
         let line, warn = false;
         if (this.confirm && t <= this.confirm.until) {
@@ -237,7 +246,7 @@ class XDrive {
         else if (mode === '2WD') line = `Rear-wheel drive · ${this.onAvailable() ? '4WD switches it back' : 'back to 4WD when the car is switched off'}${variant}`;
         else if (mode === '4WD') line = `xDrive active${this.front !== null && this._running() ? ` · front axle ${this.front.toFixed(0)} Nm` : ''}${variant}`;
         else line = `Mode not read yet${variant}`;
-        return { chosen: chosen === '4WD' ? 0 : chosen === '2WD' ? 1 : -1, line, warn };
+        return { chosen: chosen === '4WD' ? 0 : chosen === '2WD' ? 1 : -1, confirmed, line, warn };
     }
 }
 
