@@ -1,0 +1,16 @@
+{
+  "id": "iteriodev_msetup",
+  "version": "0.1.0",
+  "title": "M Setup",
+  "description": "DRAFT: the M Setup page (Engine, Chassis, Steering, Brake, M xDrive 4WD / 4WD Sport / 2WD, M Traction Control) on SETUP, M1 and M2, laid out like the iDrive 8 page. The switches are dummies: nothing is sent to the car yet.",
+  "mguHmi": [
+    "ID7",
+    "ID8"
+  ],
+  "needs": [
+    "renderer"
+  ],
+  "requires": {
+    "mgu-deploy": "0.7.5"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "iteriodev_tailscale",
+  "version": "1.0.4",
+  "description": "Tailscale status and login for the head unit: talks to the iteriodev-tailscale tool over its LocalAPI socket, shows the login link as a QR code, renames the head unit on the tailnet; GPU renderer screen",
+  "private": false,
+  "main": "javascript/runner.js",
+  "mguHmi": [
+    "ID7",
+    "ID8"
+  ],
+  "mguRequires": {
+    "iteriodev-tailscale": "1.104.4",
+    "mgu-deploy": "0.7.5"
+  },
+  "oapAppSettings": {
+    "maxDiskUsage": 20971520,
+    "cpuLimit": 20,
+    "memoryThresholdKB": 102400,
+    "priority": "PRIO_LOW",
+    "visibility": "FOREGROUND",
+    "latencyClass": "FOREGROUND",
+    "loggingId": "OA99",
+    "userLoginRequired": false,
+    "backgroundPriority": 150,
+    "someipManifest": "manifest.json"
+  },
+  "files": [
+    "icon.png",
+    "javascript",
+    "manifest.json",
+    "package.json",
+    "permissions.json",
+    "renderer",
+    "rhmiData",
+    "npm-shrinkwrap.json"
+  ],
+  "dependencies": {
+    "oap-sdk": "24.10.2"
+  },
+  "mguLocalOnly": true,
+  "productName": "Tailscale",
+  "author": "IterioDev",
+  "store": {
+    "description": "Log the head unit in to your tailnet without a computer: shows Tailscale's state, the login link as a QR code to scan with your phone, the head unit's tailnet name and address, Rename (default mgu) and Log out. Needs the Tailscale tool from the same source."
+  }
+}
