@@ -19,11 +19,12 @@ const { execFileSync } = require('child_process');
 const { design } = require('./layout.js');
 
 const ID = 'iteriodev_msetup';
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const TITLE = 'M Setup';
-const DESCRIPTION = 'DRAFT: the M Setup page laid out like the iDrive 8 one. Engine, Steering, Gearbox and M xDrive '
-    + '(4WD / 2WD) are dummy switches on SETUP, M1 and M2. Exhaust is real: Open, Closed or OEM for the electric exhaust '
-    + 'flap (BMW\'s own DME job), held by the app; Closed hands the flap back to the DME above 4500 rpm.';
+const DESCRIPTION = 'DRAFT: the M Setup page laid out like the iDrive 8 one. Engine, Steering and Gearbox are dummy '
+    + 'switches on SETUP, M1 and M2. M xDrive is real: 2WD switches xDrive off until the car is switched off (the DSC\'s '
+    + 'own job, parked in P with the engine off; tested on G42 / G2x / G01 DSCs). Exhaust is real: Open, Closed or OEM '
+    + 'for the electric exhaust flap, held by the app; Closed hands the flap back to the DME above 4500 rpm.';
 const MTIME = '2026-11-04 00:00:00Z';
 
 const HERE = __dirname;
@@ -110,15 +111,15 @@ function build() {
 
     write(path.join(stage, 'mgu-app.json'), {
         schema: 1, id: ID, version: VERSION, tree: TREE,
-        modules: ['src/main.js', 'src/exhaust.js', 'src/rows.js', 'src/diag.js', 'src/tasu-guard.js', 'src/online-host.js'],
+        modules: ['src/main.js', 'src/exhaust.js', 'src/xdrive.js', 'src/rows.js', 'src/diag.js', 'src/tasu-guard.js', 'src/online-host.js'],
         sdk: ['oap-sdk/src/core/OnlineApp.js', 'oap-sdk/src/logging/logging', 'oap-sdk/src/someip/someipBuilders'],
     });
     fs.mkdirSync(path.join(stage, 'src'), { recursive: true });
-    for (const f of ['main.js', 'exhaust.js', 'rows.js', 'diag.js', 'tasu-guard.js', 'online-host.js']) fs.copyFileSync(path.join(HERE, 'src', f), path.join(stage, 'src', f));
+    for (const f of ['main.js', 'exhaust.js', 'xdrive.js', 'rows.js', 'diag.js', 'tasu-guard.js', 'online-host.js']) fs.copyFileSync(path.join(HERE, 'src', f), path.join(stage, 'src', f));
 
     const pkg = JSON.parse(fs.readFileSync(path.join(HERE, 'pkg', 'package.json'), 'utf8'));
     Object.assign(pkg, { name: ID, version: VERSION, productName: TITLE,
-        description: 'M Setup draft: the iDrive 8 M Setup page; dummy Engine / Steering / Gearbox / xDrive, real exhaust flap (2F 60FD over TASU to the DME 0x12, held, rpm-guarded); GPU renderer screen',
+        description: 'M Setup draft: the iDrive 8 M Setup page; dummy Engine / Steering / Gearbox / xDrive, real xDrive off (2E DBE1 to the DSC 0x29, parked) and exhaust flap (2F 60FD to the DME 0x12, held, rpm-guarded) over TASU; GPU renderer screen',
         mguRequires: { 'mgu-deploy': '0.7.5' }, store: { description: DESCRIPTION } });
     pkg.oapAppSettings.loggingId = 'OAA4';
     write(path.join(tree, 'package.json'), pkg);
@@ -155,6 +156,7 @@ function previewPng(d) {
     const set = (name, o) => { const c = st.components.find((x) => x.name === name); if (c) Object.assign(c.opts, o); };
     ROWS.forEach((r) => set(`${r.key}_${r.key === 'exhaust' ? 2 : 0}`, { color: '#ff3b30' }));
     set('exhaust_sub', { text: 'The DME drives the flap · flap closed' });
+    set('xdrive_sub', { text: 'xDrive active · front axle 38 Nm' });
     set('engine_0_frame', { hidden: false }); set('engine_0_fill', { hidden: false });
     // the HMI's own top and bottom bars are not ours: grey them in so the preview reads like the car
     const bars = [{ name: 'hmiTop', rtype: 'gpu', gpu: 'rect', x: 0, y: 0, w: 2880, h: 76, opts: { color: '#000000' } },

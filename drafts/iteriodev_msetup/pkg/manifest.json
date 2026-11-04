@@ -118,6 +118,7 @@
     "de.bmw.infotainment.vehicle.Vehicle": "*",
     "de.bmw.infotainment.vehicle.Vehicle2": "*",
     "de.bmw.infrastructure.EnvironmentalInformation": "*",
+    "de.bmw.infrastructure.VehicleInformation": "*",
     "org.genivi.nodestatemanager.Consumer": {
       "instances": "NSMConsumer",
       "broadcasts": [

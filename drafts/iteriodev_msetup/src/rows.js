@@ -5,7 +5,7 @@ const ROWS = [
     { key: 'engine', label: 'Engine', icon: 'GID_ICON_MOTORDYNAMIC_V01', options: ['EFFICIENT', 'SPORT', 'SPORT PLUS'] },
     { key: 'steering', label: 'Steering', icon: 'GID_ICON_SERVOTRONIC_V01', options: ['COMFORT', 'SPORT'] },
     { key: 'gearbox', label: 'Gearbox', icon: 'GID_ICON_MTRANSMISSION_V01', options: ['COMFORT', 'SPORT', 'SPORT PLUS'] },
-    { key: 'xdrive', label: 'M xDrive', icon: 'GID_ICON_ALLWHEELDRIVE_V01', options: ['4WD', '2WD'] },
+    { key: 'xdrive', label: 'M xDrive', icon: 'GID_ICON_ALLWHEELDRIVE_V01', options: ['4WD', '2WD'], live: true },
     { key: 'exhaust', label: 'Exhaust', icon: 'GID_ICON_ENGINESOUND_V01', options: ['OPEN', 'CLOSED', 'OEM'], live: true },
 ];
 const PAGES = [

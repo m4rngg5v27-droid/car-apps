@@ -97,7 +97,7 @@ function design() {
 
     // title and the demo line
     c.push(text('title', X0, 92, 900, 44, 'SETUP', { size: 30, font: 'bold', color: '#c8ced8' }));
-    c.push(text('demo', X1 - 1000, 96, 1000, 36, 'DEMO switches · only Exhaust is sent to the car', { size: 24, align: 'right', color: '#ffb020' }));
+    c.push(text('demo', X1 - 1000, 96, 1000, 36, 'DEMO switches · only M xDrive and Exhaust are sent to the car', { size: 24, align: 'right', color: '#ffb020' }));
 
     // option rows (a live row: its label a little higher, a line under it)
     ROWS.forEach((r, i) => {
