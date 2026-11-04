@@ -2,23 +2,23 @@
 /*
  * The M Setup screen (renderer/screens.json), built in code so the rows, columns and hit boxes line up.
  * Modelled on the iDrive 8 M Setup page: a side rail (home, SETUP, M1, M2), a SETUP title, rows of options
- * (Engine, Chassis, Steering, Brake, M xDrive) with the chosen one in red, the M Traction Control slider, and
- * the diagonal light bands on the right. Design pixels are iDrive 8's (2880 x 960, the app area y 76..840);
+ * (Engine, Steering, Gearbox, M xDrive, Exhaust) with the chosen one in red, and the diagonal light bands on the
+ * right. A live row (Exhaust) has a small line under its label for what the car does. Design pixels are iDrive 8's (2880 x 960, the app area y 76..840);
  * iDrive 7 gets the whole screen scaled by the renderer.
  *
  * Element names main.js sets: title, demo, rail_<page>_{bg,icon,label}, <row>_{focus,icon,label},
- * <row>_<i> (option text), <row>_<i>_{frame,fill} (focus box), traction_{slider,value}.
- * Events: page_<page>, home (close), <row>_<i>, traction_minus, traction_plus; 'change' traction_slider.
+ * <row>_<i> (option text), <row>_<i>_{frame,fill} (focus box), <row>_sub (live rows).
+ * Events: page_<page>, home (close), <row>_<i>.
  */
 const zlib = require('zlib');
 
-const { ROWS, TRACTION, PAGES } = require('./src/rows.js');
+const { ROWS, PAGES } = require('./src/rows.js');
 const COL = { text: '#e8ecf2', dim: '#8a95a6', option: '#c9ced6', red: '#ff3b30', line: '#1a2029', rail: '#080b10' };
 const TOP = 76, BOTTOM = 840;                   // iDrive 8's app area
 const RAIL_W = 300;
 const X0 = 340, X1 = 2080;                      // the list
 const OPT_X = 1080, OPT_W = 330;                // option columns
-const ROW_Y = 150, ROW_H = 104;
+const ROW_Y = 150, ROW_H = 120;
 const DECO_X = 2100;
 
 // ---- pictures (PNG data URIs): the focus bar and the light bands ---------------------------------------------
@@ -97,30 +97,22 @@ function design() {
 
     // title and the demo line
     c.push(text('title', X0, 92, 900, 44, 'SETUP', { size: 30, font: 'bold', color: '#c8ced8' }));
-    c.push(text('demo', X1 - 900, 96, 900, 36, 'DEMO · nothing is sent to the car', { size: 24, align: 'right', color: '#ffb020' }));
+    c.push(text('demo', X1 - 1000, 96, 1000, 36, 'DEMO switches · only Exhaust is sent to the car', { size: 24, align: 'right', color: '#ffb020' }));
 
-    // option rows
-    ROWS.concat([TRACTION]).forEach((r, i) => {
-        const y = ROW_Y + i * ROW_H;
+    // option rows (a live row: its label a little higher, a line under it)
+    ROWS.forEach((r, i) => {
+        const y = ROW_Y + i * ROW_H, ly = r.live ? y + 22 : y + 38;
         c.push(el(`${r.key}_focus`, 'image', X0 - 10, y + 4, X1 - X0 + 10, ROW_H - 8, { src: focus, radius: 4, hidden: i !== 0 }));
-        c.push(el(`${r.key}_icon`, 'icon', X0 + 10, y + 26, 52, 52, { icon: r.icon, color: '#d7dce4' }));
-        c.push(text(`${r.key}_label`, X0 + 84, y + 30, OPT_X - X0 - 100, 50, r.label, { size: 38 }));
-        if (r.options) r.options.forEach((o, j) => {
+        c.push(el(`${r.key}_icon`, 'icon', X0 + 10, y + 34, 52, 52, { icon: r.icon, color: '#d7dce4' }));
+        c.push(text(`${r.key}_label`, X0 + 84, ly, OPT_X - X0 - 100, 50, r.label, { size: 38 }));
+        if (r.live) c.push(text(`${r.key}_sub`, X0 + 84, y + 72, OPT_X - X0 - 100, 32, '', { size: 22, color: COL.dim }));
+        r.options.forEach((o, j) => {
             const x = OPT_X + j * OPT_W;
-            c.push(rect(`${r.key}_${j}_frame`, x + 8, y + 16, OPT_W - 16, ROW_H - 32, '#4a5a72', 8, { hidden: true }));
-            c.push(rect(`${r.key}_${j}_fill`, x + 10, y + 18, OPT_W - 20, ROW_H - 36, '#0e1520', 7, { hidden: true }));
-            c.push(text(`${r.key}_${j}`, x, y + 34, OPT_W, 42, o, { size: 32, font: 'bold', align: 'center', color: COL.option }));
+            c.push(rect(`${r.key}_${j}_frame`, x + 8, y + 18, OPT_W - 16, ROW_H - 36, '#4a5a72', 8, { hidden: true }));
+            c.push(rect(`${r.key}_${j}_fill`, x + 10, y + 20, OPT_W - 20, ROW_H - 40, '#0e1520', 7, { hidden: true }));
+            c.push(text(`${r.key}_${j}`, x, y + 42, OPT_W, 42, o, { size: 32, font: 'bold', align: 'center', color: COL.option }));
             c.push(hit(`${r.key}_${j}_hit`, x, y, OPT_W, ROW_H, `event:${r.key}_${j}`));
         });
-        else {
-            c.push(rect('traction_minus', OPT_X + 31, y + ROW_H / 2 - 3, 28, 6, COL.text, 2));     // '−' (the kit's font has no minus sign)
-            c.push(hit('traction_minus_hit', OPT_X, y, 100, ROW_H, 'event:traction_minus'));
-            c.push(el('traction_slider', 'slider', OPT_X + 110, y + 30, 650, 44,
-                { min: r.min, max: r.max, value: 0, decimals: 0, showValue: false, color: '#9aa3b0' }));
-            c.push(text('traction_plus', OPT_X + 770, y + 22, 90, 60, '+', { size: 52, font: 'bold', align: 'center' }));
-            c.push(hit('traction_plus_hit', OPT_X + 760, y, 100, ROW_H, 'event:traction_plus'));
-            c.push(text('traction_value', OPT_X + 870, y + 34, X1 - OPT_X - 870 + 20, 42, '0 (OFF)', { size: 32, font: 'bold' }));
-        }
         c.push(rect(`${r.key}_line`, X0, y + ROW_H - 1, X1 - X0, 2, COL.line));
     });
 
@@ -133,4 +125,4 @@ function design() {
     };
 }
 
-module.exports = { design, ROWS, TRACTION, PAGES, COL };
+module.exports = { design, ROWS, PAGES, COL };

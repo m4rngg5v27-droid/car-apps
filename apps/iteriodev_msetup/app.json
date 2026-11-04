@@ -1,8 +1,8 @@
 {
   "id": "iteriodev_msetup",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "M Setup",
-  "description": "DRAFT: the M Setup page (Engine, Chassis, Steering, Brake, M xDrive 4WD / 4WD Sport / 2WD, M Traction Control) on SETUP, M1 and M2, laid out like the iDrive 8 page. The switches are dummies: nothing is sent to the car yet.",
+  "description": "DRAFT: the M Setup page laid out like the iDrive 8 one. Engine, Steering, Gearbox and M xDrive (4WD / 2WD) are dummy switches on SETUP, M1 and M2. Exhaust is real: Open, Closed or OEM for the electric exhaust flap (BMW's own DME job), held by the app; Closed hands the flap back to the DME above 4500 rpm.",
   "mguHmi": [
     "ID7",
     "ID8"

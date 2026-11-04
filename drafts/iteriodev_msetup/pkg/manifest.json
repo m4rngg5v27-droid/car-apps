@@ -1,5 +1,6 @@
 {
   "proxies": {
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": "*",
     "de.bmw.infotainment.KombiInterface_2": "*",
     "de.bmw.infotainment.certification.Certification": "*",
     "de.bmw.infotainment.checkcontrol.CheckControlMaster": "*",
